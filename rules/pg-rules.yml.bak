@@ -1,0 +1,88 @@
+groups:
+  - name: pg-replication
+    rules:
+      - alert: PGReplicationLagWarn
+        expr: pg_replication_lag_seconds > 30
+        for: 2m
+        labels:
+          severity: warning
+          env: demo
+          component: pg
+          category: replication
+        annotations:
+          summary: "【PG 复制延迟】{{ $labels.db }} 延迟 {{ $value }}s"
+          description: "PG 副本 {{ $labels.db }} 复制延迟 {{ $value }} 秒超过 30s 阈值持续 2 分钟。"
+
+      - alert: PGReplicationLagCritical
+        expr: pg_replication_lag_seconds > 300
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: pg
+          category: replication
+        annotations:
+          summary: "【PG 复制严重延迟】{{ $labels.db }} 延迟 {{ $value }}s"
+          description: "PG 副本 {{ $labels.db }} 复制延迟 {{ $value }} 秒已超 5 分钟阈值。"
+
+  - name: pg-connections
+    rules:
+      - alert: PGConnectionsHigh
+        expr: sum(pg_stat_activity_count) by (instance) / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: pg
+          category: connections
+        annotations:
+          summary: "【PG 连接使用率高】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} 连接使用率 {{ $value | humanizePercentage }} 持续 5 分钟超过 80%。"
+
+  - name: pg-cache
+    rules:
+      - alert: PGCacheHitRatioLow
+        expr: |
+          sum(rate(pg_stat_database_blks_hit[5m])) by (instance)
+          /
+          clamp_min(
+            sum(rate(pg_stat_database_blks_hit[5m])) by (instance) + sum(rate(pg_stat_database_blks_read[5m])) by (instance),
+            1
+          ) < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: pg
+          category: performance
+        annotations:
+          summary: "【PG 缓冲命中率低】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} 缓冲命中率 {{ $value | humanizePercentage }} 持续 10 分钟低于 95%，建议调大 shared_buffers。"
+
+  - name: pg-locks
+    rules:
+      - alert: PGLocksHigh
+        expr: pg_locks_count > 500
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: pg
+          category: locks
+        annotations:
+          summary: "【PG 锁数过高】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} 当前锁数 {{ $value }} 持续 5 分钟超过 500，可能存在锁等待或长事务。"
+
+  - name: pg-exporter
+    rules:
+      - alert: PGExporterDown
+        expr: up{job="pg-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: pg
+          category: exporter
+        annotations:
+          summary: "【PG Exporter 不可用】{{ $labels.db }}"
+          description: "postgres_exporter 在 {{ $labels.db }} 探活失败持续 2 分钟。"

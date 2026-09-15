@@ -1,0 +1,153 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  - job_name: blackbox-tcp
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets: ['172.20.22.107:5236']
+        labels: {db: dm-107, dbtype: dm8}
+      - targets: ['172.20.22.108:54321']
+        labels: {db: kingbase-108, dbtype: kingbase}
+      - targets: ['172.20.22.109:5436']
+        labels: {db: gauss-109, dbtype: opengauss}
+      - targets: ['172.20.22.107:3306']
+        labels: {db: mgr-107, dbtype: mysql-mgr}
+      - targets: ['172.20.22.108:3306']
+        labels: {db: mgr-108, dbtype: mysql-mgr}
+      - targets: ['172.20.22.109:3306']
+        labels: {db: mgr-109, dbtype: mysql-mgr}
+      - targets: ['172.20.22.107:3307']
+        labels: {db: ms-master-107, dbtype: mysql-ms}
+      - targets: ['172.20.22.108:3307']
+        labels: {db: ms-slave-108, dbtype: mysql-ms}
+      - targets: ['172.20.22.109:3308']
+        labels: {db: mysql-single-109, dbtype: mysql-single}
+      - targets: ['172.20.22.107:4000']
+        labels: {db: tidb-107, dbtype: tidb}
+      - targets: ['172.20.22.108:4000']
+        labels: {db: tidb-108, dbtype: tidb}
+      - targets: ['172.20.22.109:4000']
+        labels: {db: tidb-109, dbtype: tidb}
+      - targets: ['172.20.22.107:2881']
+        labels: {db: ob-107, dbtype: oceanbase}
+      - targets: ['172.20.22.108:2881']
+        labels: {db: ob-108, dbtype: oceanbase}
+      - targets: ['172.20.22.109:2881']
+        labels: {db: ob-109, dbtype: oceanbase}
+      - targets: ['172.20.22.107:2883']
+        labels: {db: ob-proxy-107, dbtype: oceanbase-proxy}
+      - targets: ['172.20.22.107:1521']
+        labels: {db: oracle-adg-107, dbtype: oracle-adg}
+      - targets: ['172.20.22.108:1521']
+        labels: {db: oracle-adg-108, dbtype: oracle-adg}
+      - targets: ['172.20.22.109:1521']
+        labels: {db: oracle-single-109, dbtype: oracle-single}
+      - targets: ['172.20.22.109:5433']
+        labels: {db: pg-primary-109, dbtype: pg}
+      - targets: ['172.20.22.109:5434']
+        labels: {db: pg-single-109, dbtype: pg}
+      - targets: ['172.20.22.109:5435']
+        labels: {db: pg-replica-109, dbtype: pg}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: ['alertmanager:9093']
+
+  - job_name: blackbox
+    static_configs:
+      - targets: ['blackbox-exporter:9115']
+  # ===== 2026-09-11: 数据库指标 exporter 层(监控用户统一 mop_monitor) =====
+  - job_name: tidb-metrics
+    static_configs:
+      - targets: ['172.20.22.107:10080']
+        labels: {db: tidb-107, dbtype: tidb}
+      - targets: ['172.20.22.108:10080']
+        labels: {db: tidb-108, dbtype: tidb}
+      - targets: ['172.20.22.109:10080']
+        labels: {db: tidb-109, dbtype: tidb}
+      - targets: ['172.20.22.107:2379']
+        labels: {db: pd-107, dbtype: tidb-pd}
+      - targets: ['172.20.22.108:2379']
+        labels: {db: pd-108, dbtype: tidb-pd}
+      - targets: ['172.20.22.109:2379']
+        labels: {db: pd-109, dbtype: tidb-pd}
+      - targets: ['172.20.22.107:20180']
+        labels: {db: tikv-107, dbtype: tidb-tikv}
+      - targets: ['172.20.22.108:20180']
+        labels: {db: tikv-108, dbtype: tidb-tikv}
+      - targets: ['172.20.22.109:20180']
+        labels: {db: tikv-109, dbtype: tidb-tikv}
+
+  - job_name: mysql-metrics
+    static_configs:
+      - targets: ['172.20.22.101:19201']
+        labels: {db: mgr-107, dbtype: mysql-mgr}
+      - targets: ['172.20.22.101:19202']
+        labels: {db: mgr-108, dbtype: mysql-mgr}
+      - targets: ['172.20.22.101:19203']
+        labels: {db: mgr-109, dbtype: mysql-mgr}
+      - targets: ['172.20.22.101:19204']
+        labels: {db: ms-master-107, dbtype: mysql-ms}
+      - targets: ['172.20.22.101:19205']
+        labels: {db: ms-slave-108, dbtype: mysql-ms}
+      - targets: ['172.20.22.101:19206']
+        labels: {db: mysql-single-109, dbtype: mysql-single}
+
+  - job_name: pg-metrics
+    static_configs:
+      - targets: ['172.20.22.101:19211']
+        labels: {db: pg-primary-109, dbtype: pg}
+      - targets: ['172.20.22.101:19212']
+        labels: {db: pg-replica-109, dbtype: pg}
+      - targets: ['172.20.22.101:19213']
+        labels: {db: pg-single-109, dbtype: pg}
+      - targets: ['172.20.22.101:19214']
+        labels: {db: gauss-109, dbtype: opengauss}
+      - targets: ['172.20.22.101:19215']
+        labels: {db: kingbase-108, dbtype: kingbase}
+
+  - job_name: oracle-metrics
+    static_configs:
+      - targets: ['172.20.22.101:19221']
+        labels: {db: oracle-adg-107, dbtype: oracle-adg}
+      - targets: ['172.20.22.101:19222']
+        labels: {db: oracle-adg-108, dbtype: oracle-adg}
+      - targets: ['172.20.22.101:19223']
+        labels: {db: oracle-single-109, dbtype: oracle-single}
+
+  - job_name: ob-metrics
+    static_configs:
+      - targets: ['172.20.22.101:19231']
+        labels: {db: ob-107, dbtype: oceanbase}
+      - targets: ['172.20.22.101:19232']
+        labels: {db: ob-108, dbtype: oceanbase}
+      - targets: ['172.20.22.101:19233']
+        labels: {db: ob-109, dbtype: oceanbase}
+
+  - job_name: dm-metrics
+    static_configs:
+      - targets: ['172.20.22.101:9200']
+        labels: {db: dm-107, dbtype: dm8}

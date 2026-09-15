@@ -1,0 +1,31 @@
+groups:
+  - name: db-health
+    rules:
+      - alert: DBEndpointDown
+        expr: probe_success{job="blackbox-tcp"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          env: demo
+        annotations:
+          summary: "【数据库不通】{{ $labels.db }} ({{ $labels.instance }})"
+          description: "Prometheus TCP 探针连续 1 分钟无法连接 {{ $labels.db }} @ {{ $labels.instance }}，请检查数据库服务与网络。"
+
+      - alert: DBProbeSlow
+        expr: probe_duration_seconds{job="blackbox-tcp"} > 2
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+        annotations:
+          summary: "【连接延迟高】{{ $labels.db }} ({{ $labels.instance }})"
+          description: "{{ $labels.db }} @ {{ $labels.instance }} 探测耗时 {{ $value }}s，超过 2s 持续 5 分钟。"
+
+      - alert: BlackboxExporterDown
+        expr: up{job="blackbox"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "blackbox-exporter 探针服务不可用"
+          description: "探针服务本身挂了，所有数据库健康检查失效。"

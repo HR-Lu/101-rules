@@ -1,0 +1,29 @@
+global:
+  resolve_timeout: 2m
+
+route:
+  group_by: ['alertname', 'db']
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+  receiver: mopheus
+
+receivers:
+  - name: mopheus
+    webhook_configs:
+      - url: 'http://172.20.22.101:8080/api/v1/webhooks/jobs/<MOPHEUS_WEBHOOK_TOKEN_MORPHEUS>'
+        send_resolved: true
+        max_alerts: 30
+      - url: 'http://172.20.22.101:9595/wecom'
+        send_resolved: true
+        max_alerts: 30
+      - url: http://172.20.22.101:8080/api/v1/webhooks/jobs/<MOPHEUS_WEBHOOK_TOKEN_WECOM>
+        send_resolved: true
+        max_alerts: 30
+
+inhibit_rules:
+  - source_matchers:
+      - severity = "critical"
+    target_matchers:
+      - severity = "warning"
+    equal: ['db']

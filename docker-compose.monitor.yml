@@ -1,0 +1,37 @@
+name: dbmonitor
+
+services:
+  blackbox-exporter:
+    image: dockerproxy.net/prom/blackbox-exporter:v0.25.0
+    container_name: dbmonitor-blackbox-1
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    restart: unless-stopped
+
+  prometheus:
+    image: dockerproxy.net/prom/prometheus:v2.53.0
+    container_name: dbmonitor-prometheus-1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules:/etc/prometheus/rules:ro
+      - ./data/prometheus:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    depends_on:
+      - blackbox-exporter
+
+  alertmanager:
+    image: dockerproxy.net/prom/alertmanager:latest
+    container_name: dbmonitor-alertmanager-1
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    restart: unless-stopped

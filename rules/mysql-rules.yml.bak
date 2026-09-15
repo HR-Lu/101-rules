@@ -1,0 +1,104 @@
+groups:
+  - name: mysql-replication
+    rules:
+      - alert: MySQLReplicationBroken
+        expr: mysql_slave_status_slave_io_running == 0 or mysql_slave_status_slave_sql_running == 0
+        for: 1m
+        labels:
+          severity: critical
+          env: demo
+          component: mysql
+          category: replication
+        annotations:
+          summary: "【主从复制中断】{{ $labels.db }} ({{ $labels.instance }})"
+          description: "实例 {{ $labels.db }} 的 Slave IO 或 SQL 线程停止 (io_running={{ with query (printf \"mysql_slave_status_slave_io_running{instance='%s',db='%s'}\" $labels.instance $labels.db) }}{{ . | first | value }}{{ end }}, sql_running={{ with query (printf \"mysql_slave_status_slave_sql_running{instance='%s',db='%s'}\" $labels.instance $labels.db) }}{{ . | first | value }}{{ end }})，请检查主从链路。"
+
+      - alert: MySQLReplicationLagWarn
+        expr: mysql_slave_status_seconds_behind_master > 60
+        for: 2m
+        labels:
+          severity: warning
+          env: demo
+          component: mysql
+          category: replication
+        annotations:
+          summary: "【复制延迟】{{ $labels.db }} 延迟 {{ $value }}s"
+          description: "{{ $labels.db }} 主从复制延迟 {{ $value }} 秒，超过 60s 阈值持续 2 分钟。"
+
+      - alert: MySQLReplicationLagCritical
+        expr: mysql_slave_status_seconds_behind_master > 300
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: mysql
+          category: replication
+        annotations:
+          summary: "【复制严重延迟】{{ $labels.db }} 延迟 {{ $value }}s"
+          description: "{{ $labels.db }} 主从复制延迟 {{ $value }} 秒，已超 5 分钟阈值，请立即排查。"
+
+  - name: mysql-connections
+    rules:
+      - alert: MySQLConnectionsHigh
+        expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: mysql
+          category: connections
+        annotations:
+          summary: "【连接数使用率高】{{ $labels.db }} 使用率 {{ $value | humanizePercentage }}"
+          description: "{{ $labels.db }} 当前连接数使用率 {{ $value | humanizePercentage }}，超过 80% 阈值持续 5 分钟，max_connections={{ with query (printf \"mysql_global_variables_max_connections{instance='%s',db='%s'}\" $labels.instance $labels.db) }}{{ . | first | value }}{{ end }}。"
+
+      - alert: MySQLThreadsSaturated
+        expr: mysql_global_status_threads_running / mysql_global_variables_max_connections > 0.9
+        for: 1m
+        labels:
+          severity: critical
+          env: demo
+          component: mysql
+          category: connections
+        annotations:
+          summary: "【活跃线程饱和】{{ $labels.db }}"
+          description: "{{ $labels.db }} 活跃线程数 / max_connections 超过 90%，数据库即将拒连。"
+
+  - name: mysql-innodb
+    rules:
+      - alert: MySQLInnoDBCachePressure
+        expr: rate(mysql_global_status_innodb_buffer_pool_wait_free[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: mysql
+          category: innodb
+        annotations:
+          summary: "【InnoDB 缓冲池争用】{{ $labels.db }}"
+          description: "{{ $labels.db }} InnoDB 缓冲池等待页释放的速率 {{ $value }}/s，建议扩 innodb_buffer_pool_size 或排查慢 SQL。"
+
+      - alert: MySQLSlowQueryBurst
+        expr: rate(mysql_global_status_slow_queries[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: mysql
+          category: performance
+        annotations:
+          summary: "【慢查询突增】{{ $labels.db }}"
+          description: "{{ $labels.db }} 慢查询速率 {{ $value }} 次/s 超过 5 阈值持续 5 分钟，建议检查 slow_query_log。"
+
+  - name: mysql-exporter
+    rules:
+      - alert: MySQLExporterDown
+        expr: up{job="mysql-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: mysql
+          category: exporter
+        annotations:
+          summary: "【MySQL Exporter 不可用】{{ $labels.instance }}"
+          description: "mysqld_exporter 在 {{ $labels.instance }} 连续 2 分钟 scrape 失败，{{ $labels.db }} 业务指标丢失。"

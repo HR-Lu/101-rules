@@ -1,0 +1,160 @@
+groups:
+  - name: dm-status
+    rules:
+      - alert: DMDatabaseNotOpen
+        expr: dmdbms_status_info != 1
+        for: 1m
+        labels:
+          severity: critical
+          env: demo
+          component: dm8
+          category: availability
+        annotations:
+          summary: "【DM 数据库非 OPEN 状态】{{ $labels.datasource }}"
+          description: "{{ $labels.datasource }} 当前状态码 {{ $value }} (1=open, 2=mount, 3=suspend, 4=other)，非正常 OPEN。"
+
+      - alert: DMStandbyModeUnexpected
+        expr: dmdbms_mode_info == 3
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: cluster
+        annotations:
+          summary: "【DM Standby 节点异常停留】{{ $labels.datasource }}"
+          description: "{{ $labels.datasource }} mode_info=standby 持续 5 分钟未切回 primary，检查主备切换是否正确。"
+
+  - name: dm-storage
+    rules:
+      - alert: DMTablespaceHigh
+        expr: |
+          (
+            sum by (datasource, tablespace_name) (dmdbms_tablespace_file_total_info)
+            -
+            sum by (datasource, tablespace_name) (dmdbms_tablespace_file_free_info)
+          )
+          /
+          clamp_min(sum by (datasource, tablespace_name) (dmdbms_tablespace_file_total_info), 1)
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: storage
+        annotations:
+          summary: "【DM 表空间使用率高】{{ $labels.tablespace_name }}"
+          description: "{{ $labels.datasource }} 表空间 {{ $labels.tablespace_name }} 使用率 {{ $value | humanizePercentage }} 持续 10 分钟超过 85%。"
+
+      - alert: DMTablespaceCritical
+        expr: |
+          (
+            sum by (datasource, tablespace_name) (dmdbms_tablespace_file_total_info)
+            -
+            sum by (datasource, tablespace_name) (dmdbms_tablespace_file_free_info)
+          )
+          /
+          clamp_min(sum by (datasource, tablespace_name) (dmdbms_tablespace_file_total_info), 1)
+          > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          env: demo
+          component: dm8
+          category: storage
+        annotations:
+          summary: "【DM 表空间严重不足】{{ $labels.tablespace_name }}"
+          description: "{{ $labels.datasource }} 表空间 {{ $labels.tablespace_name }} 使用率 {{ $value | humanizePercentage }} 持续 5 分钟超过 95%。"
+
+  - name: dm-archivelog
+    rules:
+      - alert: DMArchiveLogStale
+        expr: time() - dmdbms_arch_last_create_time_seconds > 1800
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: archivelog
+        annotations:
+          summary: "【DM 归档日志停滞】{{ $labels.datasource }}"
+          description: "{{ $labels.datasource }} 最近归档日志创建时间距今 {{ $value | humanizeDuration }}，超过 30 分钟未产生新归档，需检查归档开关/磁盘。"
+
+      - alert: DMArchiveStatusInvalid
+        expr: dmdbms_arch_status < 0
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: archivelog
+        annotations:
+          summary: "【DM 归档状态异常】{{ $labels.datasource }} status={{ $value }}"
+          description: "{{ $labels.datasource }} dmdbms_arch_status={{ $value }} (-1=no_enable, -2=unknown) 持续 5 分钟，归档未启用或异常。"
+
+  - name: dm-performance
+    rules:
+      - alert: DMDeadlockBurst
+        expr: increase(dmdbms_dead_lock_num_total[10m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: locks
+        annotations:
+          summary: "【DM 死锁发生】{{ $labels.datasource }}"
+          description: "{{ $labels.datasource }} 10 分钟内死锁次数增量 {{ $value }}，建议检查应用事务设计。"
+
+      - alert: DMThreadsHigh
+        expr: dmdbms_thread_num_info > 1000
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: threads
+        annotations:
+          summary: "【DM 工作线程数高】{{ $labels.datasource }}"
+          description: "{{ $labels.datasource }} 当前线程数 {{ $value }} 持续 10 分钟超过 1000 阈值，检查连接泄漏或工作线程配置。"
+
+  - name: dm-bufferpool
+    rules:
+      - alert: DMBufferPoolHitRatioLow
+        expr: dmdbms_bufferpool_info < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: performance
+        annotations:
+          summary: "【DM 缓冲池命中率低】{{ $labels.datasource }}"
+          description: "{{ $labels.datasource }} bufferpool hit rate {{ $value | humanizePercentage }} 持续 10 分钟低于 95%。"
+
+  - name: dm-exporter
+    rules:
+      - alert: DMDBUp
+        expr: dmdb_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: dm8
+          category: exporter
+        annotations:
+          summary: "【DM DB 探活失败】{{ $labels.datasource }}"
+          description: "{{ $labels.datasource }} dmdb_up=0 持续 2 分钟，dameng_exporter 无法连接目标。"
+
+      - alert: DMExporterDown
+        expr: up{job="dm-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: dm8
+          category: exporter
+        annotations:
+          summary: "【DM Exporter 不可用】{{ $labels.instance }}"
+          description: "dameng_exporter 探活失败持续 2 分钟。"

@@ -1,0 +1,108 @@
+groups:
+  - name: tidb-pd
+    rules:
+      - alert: TiDBPDUnhealthy
+        expr: pd_cluster_health_status == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: tidb-pd
+          category: cluster
+        annotations:
+          summary: "【TiDB PD 不健康】{{ $labels.name }}"
+          description: "Placement Driver {{ $labels.name }} (instance {{ $labels.instance }}) 健康状态 = 0 持续 2 分钟，集群调度可能不可用。"
+
+      - alert: TiDBPDDown
+        expr: up{job="tidb-metrics", db=~"pd-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: tidb-pd
+          category: exporter
+        annotations:
+          summary: "【PD Exporter 不可用】{{ $labels.db }}"
+          description: "PD {{ $labels.db }} 探活失败持续 2 分钟。"
+
+      - alert: TiDBPDTooManyPendingRegions
+        expr: pd_checker_region_list{type="pending_processed_regions"} > 1000
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: tidb-pd
+          category: cluster
+        annotations:
+          summary: "【TiDB PD 待处理 Region 堆积】{{ $labels.instance }}"
+          description: "PD {{ $labels.instance }} 待处理 Region 数 {{ $value }} 持续 10 分钟超过 1000 阈值。"
+
+  - name: tidb-tikv
+    rules:
+      - alert: TiDBTiKVDown
+        expr: up{job="tidb-metrics", db=~"tikv-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: tidb-tikv
+          category: exporter
+        annotations:
+          summary: "【TiKV Exporter 不可用】{{ $labels.db }}"
+          description: "TiKV {{ $labels.db }} 探活失败持续 2 分钟。"
+
+      - alert: TiDBTiKVCacheMissHigh
+        expr: |
+          (
+            sum(rate(tikv_engine_blob_cache_efficiency{type="block_cache_data_miss"}[5m])) by (instance)
+            /
+            clamp_min(sum(rate(tikv_engine_blob_cache_efficiency{type="block_cache_data_hit"}[5m])) by (instance)
+              + sum(rate(tikv_engine_blob_cache_efficiency{type="block_cache_data_miss"}[5m])) by (instance), 1)
+          ) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: tidb-tikv
+          category: performance
+        annotations:
+          summary: "【TiKV block cache 命中率低】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} block cache miss 占比 {{ $value | humanizePercentage }}，持续 10 分钟，建议排查热点数据或扩 block cache size。"
+
+  - name: tidb-server
+    rules:
+      - alert: TiDBServerDown
+        expr: up{job="tidb-metrics", db=~"tidb-.*"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: tidb-server
+          category: exporter
+        annotations:
+          summary: "【TiDB Server 不可用】{{ $labels.db }}"
+          description: "TiDB Server {{ $labels.db }} 探活失败持续 2 分钟。"
+
+      - alert: TiDBDDLJobsBacklog
+        expr: tidb_ddl_running_job_count > 5
+        for: 15m
+        labels:
+          severity: warning
+          env: demo
+          component: tidb-server
+          category: ddl
+        annotations:
+          summary: "【TiDB DDL 任务积压】{{ $labels.db }}"
+          description: "TiDB {{ $labels.db }} 当前运行 DDL 任务数 {{ $value }} 持续 15 分钟超过 5 阈值。"
+
+      - alert: TiDBExporterDown
+        expr: up{job="tidb-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: tidb
+          category: exporter
+        annotations:
+          summary: "【tidb-metrics 整个 job 不可用】{{ $labels.instance }}"
+          description: "tidb-metrics job 在 {{ $labels.instance }} 整体探活失败，需检查 PD/TiKV/TiDB 任一组件或抓取路径。"

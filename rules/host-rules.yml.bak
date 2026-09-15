@@ -1,0 +1,122 @@
+# =============================================================================
+# TODO: node_exporter 未部署。
+# 当前 prometheus.yml 中没有名为 `node` 的 scrape job,本文件 alert 规则
+# 全部基于 `job="node"` 假设,部署前不会触发。
+#
+# 待办:在 prometheus.yml 的 scrape_configs 中追加(示例):
+#   - job_name: node
+#     static_configs:
+#       - targets: ['172.20.22.101:9100']
+#         labels: {env: demo, role: monitor-host}
+#       - targets: ['172.20.22.107:9100', '172.20.22.108:9100', '172.20.22.109:9100']
+#         labels: {env: demo, role: db-host}
+# 然后通过 POST /-/reload 让 Prometheus 重新加载。
+# =============================================================================
+groups:
+  - name: host-cpu
+    rules:
+      - alert: HostCPUHigh
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: host
+          category: cpu
+        annotations:
+          summary: "【主机 CPU 高】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} CPU 使用率 {{ $value | humanize }}% 持续 10 分钟超过 80%。"
+
+      - alert: HostCPUCritical
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 5m
+        labels:
+          severity: critical
+          env: demo
+          component: host
+          category: cpu
+        annotations:
+          summary: "【主机 CPU 严重高】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} CPU 使用率 {{ $value | humanize }}% 持续 5 分钟超过 95%。"
+
+  - name: host-memory
+    rules:
+      - alert: HostMemoryLow
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          env: demo
+          component: host
+          category: memory
+        annotations:
+          summary: "【主机可用内存不足】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} 可用内存占比 {{ $value | humanize }}% 持续 5 分钟低于 10%，可能触发 OOM。"
+
+  - name: host-disk
+    rules:
+      - alert: HostDiskSpaceLow
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes) * 100 < 10
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: host
+          category: disk
+        annotations:
+          summary: "【主机磁盘空间低】{{ $labels.instance }} {{ $labels.mountpoint }}"
+          description: "{{ $labels.instance }}:{{ $labels.mountpoint }} (fstype={{ $labels.fstype }}) 可用空间占比 {{ $value | humanize }}% 持续 10 分钟低于 10%。"
+
+      - alert: HostDiskSpaceCritical
+        expr: (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes) * 100 < 5
+        for: 5m
+        labels:
+          severity: critical
+          env: demo
+          component: host
+          category: disk
+        annotations:
+          summary: "【主机磁盘空间严重不足】{{ $labels.instance }} {{ $labels.mountpoint }}"
+          description: "{{ $labels.instance }}:{{ $labels.mountpoint }} 可用空间 {{ $value | humanize }}% 持续 5 分钟低于 5%。"
+
+  - name: host-load
+    rules:
+      - alert: HostLoadHigh
+        expr: node_load5 > count(node_cpu_seconds_total{mode="idle"}) by (instance) * 1.5
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: host
+          category: load
+        annotations:
+          summary: "【主机 load5 高】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} 5 分钟 load = {{ $value }}，超过 CPU 核数 ×1.5 持续 10 分钟。"
+
+  - name: host-io
+    rules:
+      - alert: HostDiskIOLargeQueue
+        expr: node_disk_io_now > 100
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: host
+          category: io
+        annotations:
+          summary: "【主机磁盘 IO 队列长】{{ $labels.instance }} {{ $labels.device }}"
+          description: "{{ $labels.instance }} 设备 {{ $labels.device }} 当前 IO 队列深度 {{ $value }} 持续 10 分钟超过 100。"
+
+  - name: host-exporter
+    rules:
+      - alert: HostNodeExporterDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: host
+          category: exporter
+        annotations:
+          summary: "【node_exporter 不可用】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} node_exporter 探活失败持续 2 分钟，主机层监控失效。"

@@ -1,0 +1,92 @@
+groups:
+  - name: oracle-tablespace
+    rules:
+      - alert: OracleTablespaceHigh
+        expr: oracledb_tablespace_used_percent > 85
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: oracle
+          category: storage
+        annotations:
+          summary: "【Oracle 表空间使用率高】{{ $labels.tablespace }} {{ $value | humanizePercentage }}"
+          description: "Oracle 实例 {{ $labels.instance }} 表空间 {{ $labels.tablespace }} ({{ $labels.type }}) 使用率 {{ $value | humanizePercentage }} 持续 10 分钟超过 85%。"
+
+      - alert: OracleTablespaceCritical
+        expr: oracledb_tablespace_used_percent > 95
+        for: 5m
+        labels:
+          severity: critical
+          env: demo
+          component: oracle
+          category: storage
+        annotations:
+          summary: "【Oracle 表空间严重不足】{{ $labels.tablespace }} {{ $value | humanizePercentage }}"
+          description: "Oracle 实例 {{ $labels.instance }} 表空间 {{ $labels.tablespace }} 使用率 {{ $value | humanizePercentage }} 持续 5 分钟超过 95%，需立即扩空间。"
+
+  - name: oracle-sessions
+    rules:
+      - alert: OracleSessionsHigh
+        expr: sum(oracledb_sessions_value) by (instance) / oracledb_process_count > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: oracle
+          category: connections
+        annotations:
+          summary: "【Oracle Session 接近 process 上限】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} 当前 session/process 比 {{ $value | humanizePercentage }} 持续 5 分钟超过 80%，逼近 processes 参数上限。"
+
+      - alert: OracleResourceLimitHigh
+        expr: oracledb_resource_current_utilization > 95
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: oracle
+          category: resources
+        annotations:
+          summary: "【Oracle 资源限额高】{{ $labels.resource_name }} = {{ $value }}"
+          description: "{{ $labels.instance }} 资源 {{ $labels.resource_name }} 当前利用率 {{ $value }}% 持续 10 分钟超过 95%。"
+
+  - name: oracle-waits
+    rules:
+      - alert: OracleApplicationWaitsHigh
+        expr: rate(oracledb_wait_time_application[5m]) > 50
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: oracle
+          category: waits
+        annotations:
+          summary: "【Oracle Application 类等待高】{{ $labels.instance }}"
+          description: "{{ $labels.instance }} Application wait class 平均等待时间 {{ $value }}cs/s 持续 10 分钟超过 50cs/s 阈值，建议排查应用锁/行锁竞争。"
+
+  - name: oracle-exporter
+    rules:
+      - alert: OracleDBDown
+        expr: oracledb_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: oracle
+          category: availability
+        annotations:
+          summary: "【Oracle 数据库不可用】{{ $labels.instance }}"
+          description: "Oracle 实例 {{ $labels.instance }} 状态 oracledb_up=0 持续 2 分钟。"
+
+      - alert: OracleExporterDown
+        expr: up{job="oracle-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: oracle
+          category: exporter
+        annotations:
+          summary: "【Oracle Exporter 不可用】{{ $labels.db }}"
+          description: "oracledb_exporter 在 {{ $labels.db }} 探活失败持续 2 分钟。"

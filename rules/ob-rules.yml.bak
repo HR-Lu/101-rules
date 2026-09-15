@@ -1,0 +1,79 @@
+groups:
+  - name: oceanbase-server
+    rules:
+      - alert: OBServerDown
+        expr: up{job="ob-metrics"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          env: demo
+          component: oceanbase
+          category: exporter
+        annotations:
+          summary: "【OceanBase Server 不可用】{{ $labels.db }}"
+          description: "OceanBase observer {{ $labels.db }} 探活失败持续 2 分钟。"
+
+      - alert: OBConnectionsHigh
+        expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: oceanbase
+          category: connections
+        annotations:
+          summary: "【OceanBase 连接数高】{{ $labels.db }} 使用率 {{ $value | humanizePercentage }}"
+          description: "OB observer {{ $labels.db }} 连接使用率 {{ $value | humanizePercentage }} 持续 5 分钟超过 80%。"
+
+      - alert: OBSlowQueryBurst
+        expr: rate(mysql_global_status_slow_queries[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: oceanbase
+          category: performance
+        annotations:
+          summary: "【OceanBase 慢查询突增】{{ $labels.db }}"
+          description: "OB observer {{ $labels.db }} 慢查询速率 {{ $value }} 次/s 持续 5 分钟超过 5。"
+
+  - name: oceanbase-proxy
+    rules:
+      - alert: OBProxyDown
+        expr: probe_success{job="blackbox-tcp", db=~"ob-proxy-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          env: demo
+          component: oceanbase-proxy
+          category: connectivity
+        annotations:
+          summary: "【OceanBase Proxy 端口不通】{{ $labels.db }}"
+          description: "OBProxy {{ $labels.db }} TCP 探针 1 分钟持续失败，proxy 已不可用。"
+
+      - alert: OBProxyProbeSlow
+        expr: probe_duration_seconds{job="blackbox-tcp", db=~"ob-proxy-.*"} > 2
+        for: 5m
+        labels:
+          severity: warning
+          env: demo
+          component: oceanbase-proxy
+          category: connectivity
+        annotations:
+          summary: "【OceanBase Proxy 探针慢】{{ $labels.db }} 耗时 {{ $value }}s"
+          description: "OBProxy {{ $labels.db }} 端口探测耗时 {{ $value }}s 持续 5 分钟超过 2s。"
+
+  - name: oceanbase-todo
+    rules:
+      - alert: OBTabletCountMismatchMissing
+        expr: vector(0)
+        for: 1h
+        labels:
+          severity: warning
+          env: demo
+          component: oceanbase
+          category: cluster
+          _todo: "missing OB-specific exporter"
+        annotations:
+          summary: "【TODO】OBTabletCountMismatch 未实现 - 缺 OB 专属 exporter"
+          description: "当前 ob-metrics 用的 mysqld_exporter 不暴露 tablet 副本一致性指标。需部署 obcluster_exporter 后写规则。建议优先级 P1。"
