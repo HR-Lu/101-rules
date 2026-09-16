@@ -24,6 +24,8 @@ ALERT_NAME_CN = {
     "DBEndpointDown": "数据库连接中断",
     "DBProbeSlow": "数据库响应缓慢",
     "BlackboxExporterDown": "监控探针异常",
+    "DMTablespaceHigh": "DM表空间使用率过高",
+    "DMTablespaceCritical": "DM表空间使用率严重过高",
 }
 SEVERITY_CN = {"critical": "严重", "warning": "警告", "info": "提示"}
 DB_NAME_MAP = {

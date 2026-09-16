@@ -1,0 +1,28 @@
+groups:
+  - name: dm-tablespace
+    rules:
+      - alert: DMTablespaceHigh
+        expr: |
+          1 - dmdbms_tablespace_file_free_info / clamp_min(dmdbms_tablespace_file_total_info, 1) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: dm8
+          category: storage
+        annotations:
+          summary: "【DM 表空间使用率过高】{{ $labels.tablespace_name }}"
+          description: "{{ $labels.datasource }} 表空间 {{ $labels.tablespace_name }} 使用率 {{ $value | humanizePercentage }} 持续 10 分钟超过 85%。"
+
+      - alert: DMTablespaceCritical
+        expr: |
+          1 - dmdbms_tablespace_file_free_info / clamp_min(dmdbms_tablespace_file_total_info, 1) > 0.90
+        for: 5m
+        labels:
+          severity: critical
+          env: demo
+          component: dm8
+          category: storage
+        annotations:
+          summary: "【DM 表空间严重不足】{{ $labels.tablespace_name }}"
+          description: "{{ $labels.datasource }} 表空间 {{ $labels.tablespace_name }} 使用率 {{ $value | humanizePercentage }} 持续 5 分钟超过 90%。"
