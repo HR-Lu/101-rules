@@ -1,0 +1,16 @@
+# 2026-09-18 上线：仅死锁规则（新增需求）。
+# 旧 5 条规则（复制延迟/连接使用率/缓冲命中率/锁数/exporter 探活）仍在 pg-rules.yml.bak，
+# 待与同事对齐 9-15 误报修复方案后合并恢复，恢复时注意与本文件去重。
+groups:
+  - name: pg-deadlock
+    rules:
+      - alert: PGDeadlockOccurred
+        expr: increase(pg_stat_database_deadlocks{job="pg-metrics",dbtype="pg",datname!~"template.*"}[5m]) > 0
+        labels:
+          severity: critical
+          env: demo
+          component: pg
+          category: locks
+        annotations:
+          summary: "【PG 死锁】{{ $labels.db }} / {{ $labels.datname }}"
+          description: "{{ $labels.db }} 数据库 {{ $labels.datname }} 最近 5 分钟新增死锁 {{ $value | humanize }} 次，请排查事务加锁顺序与长事务。"

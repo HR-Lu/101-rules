@@ -1,0 +1,18 @@
+# 2026-09-18 上线：仅会话数绝对值规则（新增需求）。
+# 旧规则仍在 ob-rules.yml.bak 待对齐修复，注意 .bak 的 OBConnectionsHigh 是死规则：
+# OB 通过 2881 端口返回的 max_connections=2147483647（INT32_MAX 假值），
+# 使用率 = threads_connected / max_connections 永远约等于 0，不可能触发，恢复时需换绝对值阈值。
+groups:
+  - name: oceanbase-sessions
+    rules:
+      - alert: OBSessionsHigh
+        expr: mysql_global_status_threads_connected{job="ob-metrics"} > 100
+        for: 2m
+        labels:
+          severity: warning
+          env: demo
+          component: oceanbase
+          category: connections
+        annotations:
+          summary: "【OceanBase 会话数过高】{{ $labels.db }}"
+          description: "OB {{ $labels.db }} 当前会话数 {{ $value | humanize }} 持续 2 分钟超过 100，请排查业务连接来源。"

@@ -1,0 +1,29 @@
+# 2026-09-18 上线：node_exporter v1.12.1 已部署四台主机（101/107/108/109，systemd: mop-node.service，端口 9100）。
+# 本次仅上线 CPU 规则（新增需求）；内存/磁盘/负载/IO/exporter 探活规则仍在 host-rules.yml.bak 待对齐恢复。
+# node job 的 db 标签（host-101 等）供 alertmanager group_by/inhibit 按主机区分。
+groups:
+  - name: host-cpu
+    rules:
+      - alert: HostCPUHigh
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{job="node",mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          env: demo
+          component: host
+          category: cpu
+        annotations:
+          summary: "【主机 CPU 高】{{ $labels.db }}"
+          description: "{{ $labels.db }} ({{ $labels.instance }}) CPU 使用率 {{ $value | humanize }}% 持续 10 分钟超过 80%。"
+
+      - alert: HostCPUCritical
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{job="node",mode="idle"}[5m])) * 100) > 95
+        for: 5m
+        labels:
+          severity: critical
+          env: demo
+          component: host
+          category: cpu
+        annotations:
+          summary: "【主机 CPU 严重高】{{ $labels.db }}"
+          description: "{{ $labels.db }} ({{ $labels.instance }}) CPU 使用率 {{ $value | humanize }}% 持续 5 分钟超过 95%。"

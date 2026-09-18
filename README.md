@@ -16,7 +16,11 @@
 ├── daily_check.sh            # 每日晨检脚本（22 连接登录验证，08:00 触发）
 └── rules/                    # 告警规则（Prometheus rule_files 加载目录）
     ├── blackbox-tcp.yml      # TCP 探针可用性规则（9-11 上线，长期稳定）
-    ├── dm-rules.yml.bak      # ↓ 以下 7 个文件 9-15 14:18 上线、14:51 停用（见下）
+    ├── dm-rules.yml          # DM 表空间规则（9-16 修复后恢复）
+    ├── pg-rules.yml          # 9-18 新上线：仅 PG 死锁规则
+    ├── ob-rules.yml          # 9-18 新上线：仅 OB 会话数 >100 规则
+    ├── host-rules.yml        # 9-18 新上线：仅主机 CPU 规则（node_exporter 四台已部署）
+    ├── dm-rules.yml.bak      # ↓ 以下 .bak 为 9-15 14:18 上线、14:51 停用的旧规则（见下），待对齐修复后合并回同名 .yml
     ├── mysql-rules.yml.bak
     ├── tidb-rules.yml.bak
     ├── ob-rules.yml.bak
@@ -24,6 +28,22 @@
     ├── oracle-rules.yml.bak
     └── host-rules.yml.bak
 ```
+
+## 2026-09-18 变更记录
+
+新增三条告警上线（只上新规则，.bak 旧规则不动，待对齐后合并去重）：
+
+| 规则 | 表达式 | 阈值 | 级别 |
+|---|---|---|---|
+| PGDeadlockOccurred | `increase(pg_stat_database_deadlocks{dbtype="pg",datname!~"template.*"}[5m]) > 0` | 死锁事件增量 | critical（即时触发） |
+| OBSessionsHigh | `mysql_global_status_threads_connected{job="ob-metrics"} > 100` | 会话绝对值 | warning（持续 2m） |
+| HostCPUHigh / HostCPUCritical | `100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))*100` | 80% / 95% | warning 10m / critical 5m |
+
+配套变更：
+- **node_exporter v1.12.1 首次部署**，四台主机全覆盖：101(amd64，`exporter_pkgs/bin/node_exporter`)、107/108/109(arm64，`/app/soft/install/node_exporter/`)，systemd 服务统一 `mop-node.service`，端口 9100；108 的 firewalld 已放行 9100。prometheus.yml 新增 `node` 抓取 job（db 标签 host-101~109，供 alertmanager group_by/inhibit 按主机区分）
+- **发现 .bak 中 OBConnectionsHigh 是死规则**：OB 经 2881 返回 max_connections=2147483647（INT32_MAX 假值），使用率永远≈0。恢复旧规则时需换绝对值阈值（本次 OBSessionsHigh 即为替代实现）
+- **教训：node job 刚上线时 rate() 冷启动失真**——前几分钟样本不足，CPU 使用率外推虚高至 70%+（真实仅 5-8%，top 交叉验证），HostCPUHigh 短暂 pending 后自动消除，未发出误报。新指标 job 上线后应等 2 个完整 rate 窗口（10 分钟）再评估告警取值
+
 
 ## 2026-09-15 误报事件记录
 
