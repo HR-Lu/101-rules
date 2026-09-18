@@ -6,6 +6,7 @@ Receives Alertmanager webhook payloads on :9595, converts each alert
 to a WeCom markdown message (orange for firing, green for resolved)
 and POSTs it to the group bot.
 """
+import os
 import json
 import logging
 import re
@@ -14,7 +15,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-WECOM_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=<WECOM_BOT_KEY>"
+WECOM_URL = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=" + os.environ.get("WECOM_BOT_KEY", "")
 LISTEN_ADDR = "0.0.0.0"
 LISTEN_PORT = 9595
 LOG_FILE = "/app/soft/install/monitoring/logs/wecom_bridge.log"

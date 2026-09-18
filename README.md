@@ -79,7 +79,19 @@ curl -X POST http://localhost:9090/-/reload
 
 仓库内以下内容为**占位符**，真实值只存在于 101 服务器本地，不入库：
 
-- `<WECOM_BOT_KEY>`：企微群机器人 key（wecom_bridge.py）
 - `<MOPHEUS_WEBHOOK_TOKEN_*>`：Mopheus 自动化任务 webhook token（alertmanager.yml / daily_check.sh）
+- `<CONNECTOR_BASIC_AUTH_PASSWORD>`：107 connector webhook 的 basic auth 密码（alertmanager.yml，已注释）
 
 数据库 exporter 的连接密码在 101 `/app/soft/install/monitoring/exporter_pkgs/conf/`，不纳入本仓库。
+
+## 企微桥部署方式（2026-09-18 起）
+
+wecom_bridge.py **不再包含任何密钥**，key 从环境变量 `WECOM_BOT_KEY` 读取：
+
+- 密钥文件：101 `/app/soft/install/monitoring/wecom_bridge.env`（600 权限，内容 `WECOM_BOT_KEY=<真实key>`）
+- systemd 单元 `/etc/systemd/system/wecom-bridge.service` 的 `[Service]` 段通过 `EnvironmentFile=` 加载
+- 因此本仓库的 wecom_bridge.py 与服务器版**完全一致，可直接 scp 覆盖**（9-18 之前的整文件覆盖断告警事故已根治）
+
+## alertmanager.yml 第三路 webhook（connector）状态
+
+107:8080 的 connector webhook 于 9-18 11:55 被加入配置但**尚未接入流程**，已注释保留；就绪后取消注释并 `curl -X POST http://localhost:9093/-/reload` 即可，basic auth 密码在服务器本地（见上）。

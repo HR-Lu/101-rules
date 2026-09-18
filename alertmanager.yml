@@ -17,9 +17,14 @@ receivers:
       - url: 'http://172.20.22.101:9595/wecom'
         send_resolved: true
         max_alerts: 30
-      - url: http://172.20.22.101:8080/api/v1/webhooks/jobs/<MOPHEUS_WEBHOOK_TOKEN_WECOM>
-        send_resolved: true
-        max_alerts: 30
+      # connector（107:8080）暂未接入流程，2026-09-18 注释，就绪后取消注释并 reload
+      # - url: "http://172.20.22.107:8080/webhook/alertmanager"
+        # send_resolved: true            # 必须开启，否则收不到恢复事件
+        # http_config:
+          # basic_auth:
+            # username: connector
+            # password: <CONNECTOR_BASIC_AUTH_PASSWORD>
+
 
 inhibit_rules:
   - source_matchers:
