@@ -26,6 +26,10 @@ ALERT_NAME_CN = {
     "BlackboxExporterDown": "监控探针异常",
     "DMTablespaceHigh": "DM表空间使用率过高",
     "DMTablespaceCritical": "DM表空间使用率严重过高",
+    "PGDeadlockOccurred": "PostgreSQL发生死锁",
+    "OBSessionsHigh": "OceanBase会话数过高",
+    "HostCPUHigh": "主机CPU使用率过高",
+    "HostCPUCritical": "主机CPU使用率严重过高",
 }
 SEVERITY_CN = {"critical": "严重", "warning": "警告", "info": "提示"}
 DB_NAME_MAP = {
@@ -65,6 +69,7 @@ DBTYPE_CN = {
     "oracle-adg": "Oracle ADG",
     "oracle-single": "Oracle 单机",
     "pg": "PostgreSQL",
+    "host": "主机",
 }
 
 logging.basicConfig(
